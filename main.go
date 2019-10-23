@@ -25,7 +25,7 @@ var (
 	keyFile   = flag.String("key", "someKeyFile", "A PEM encoded private key file.")
 	caFile    = flag.String("CA", "someCertCAFile", "A PEM encoded CA's certificate file.")
 	client    *http.Client
-	processId string
+	processID string
 	endpoints *xs2a.Endpoints
 )
 
@@ -40,7 +40,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(string(consent.ID))
 
 	// Get endpoints
 	endpoints = new(xs2a.Endpoints)
@@ -48,10 +47,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(string(endpoints.Authorization))
 
 	// Print redirect link
-	processId = uuid.New().String()
+	processID = uuid.New().String()
 	u, err := url.Parse(endpoints.Authorization)
 	if err != nil {
 		log.Fatal(err)
@@ -60,7 +58,7 @@ func main() {
 	params.Add("responseType", "code")
 	params.Add("clientId", "pecuniatordotgo")
 	params.Add("scope", "AIS: "+consent.ID)
-	params.Add("state", processId)
+	params.Add("state", processID)
 	params.Add("code_challenge_method", "S256")
 	params.Add("code_challenge", "vXVXiMA4CQ_Buik94dCNpfIfveWdNxMEwVtxGDz7xWg")
 
@@ -80,20 +78,21 @@ func getToken(code string) {
 	form.Add("code_verifier", "TODO") // TODO see PKCE (Proof  Key  for Code Exchange RFC 7636)
 	form.Add("grant_type", "authorization_code")
 
+	contentType := "application/x-www-form-urlencoded"
 	headers := make(map[string]string)
-	res, err := EncryptedPost(endpoints.Token, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()), headers)
+	headers["Content-Type"] = contentType
+	res, err := EncryptedPost(endpoints.Token, contentType, strings.NewReader(form.Encode()), headers)
 
 	body, err := ioutil.ReadAll(res.Body)
 
 	if err != nil {
 		//handle read response error
 	}
-
 	fmt.Printf("%s\n", string(body))
 }
 
 func authCodeHandler(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Query().Get("state") == processId {
+	if req.URL.Query().Get("state") == processID {
 		code := req.URL.Query().Get("code")
 		getToken(code)
 		fmt.Fprintf(w, "Authorization success. Token: %s\n", code)
