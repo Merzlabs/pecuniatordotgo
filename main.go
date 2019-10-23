@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,10 +20,12 @@ import (
 )
 
 var (
-	certFile = flag.String("cert", "someCertFile", "A PEM eoncoded certificate file.")
-	keyFile  = flag.String("key", "someKeyFile", "A PEM encoded private key file.")
-	caFile   = flag.String("CA", "someCertCAFile", "A PEM encoded CA's certificate file.")
-	client   *http.Client
+	certFile  = flag.String("cert", "someCertFile", "A PEM eoncoded certificate file.")
+	keyFile   = flag.String("key", "someKeyFile", "A PEM encoded private key file.")
+	caFile    = flag.String("CA", "someCertCAFile", "A PEM encoded CA's certificate file.")
+	client    *http.Client
+	processId string
+	token     string
 )
 
 func main() {
@@ -45,6 +48,37 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Println(string(endpoints.Authorization))
+
+	// Print redirect link
+	processId = uuid.New().String()
+	u, err := url.Parse(endpoints.Authorization)
+	if err != nil {
+		log.Fatal(err)
+	}
+	params := url.Values{}
+	params.Add("responseType", "code")
+	params.Add("clientId", "pecuniatordotgo")
+	params.Add("scope", "AIS: "+consent.ID)
+	params.Add("state", processId)
+	params.Add("code_challenge_method", "S256")
+	params.Add("code_challenge", "vXVXiMA4CQ_Buik94dCNpfIfveWdNxMEwVtxGDz7xWg")
+
+	u.RawQuery = params.Encode()
+	log.Printf("Please login here to proceed: %s", u.String())
+
+	// Capture redirect
+	http.HandleFunc("/redirect", authCodeHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func authCodeHandler(w http.ResponseWriter, req *http.Request) {
+	log.Print(req.URL.Query())
+	if req.URL.Query().Get("state") == processId {
+		token = req.URL.Query().Get("code")
+		fmt.Fprintf(w, "Authorization success. Token: %s\n", token)
+	} else {
+		fmt.Fprintf(w, "Authorization faile\n")
+	}
 }
 
 func startConsent(consent *xs2a.ConsentResponse) error {
@@ -73,7 +107,6 @@ func startConsent(consent *xs2a.ConsentResponse) error {
 	headers["TPP-Redirect-URI"] = os.Getenv("PT_TPPREDIRECTURI")
 	headers["TPP-Redirect-Preferred"] = "true"
 	url := BuildURL("/consents")
-	log.Print(string(data))
 
 	res, err := EncryptedPost(url, contentType, reader, headers)
 
