@@ -28,6 +28,8 @@ var (
 	processID string
 	endpoints *xs2a.Endpoints
 	tokens    *xs2a.Tokens
+	consent   *xs2a.ConsentResponse
+	requestID string
 )
 
 func main() {
@@ -36,7 +38,7 @@ func main() {
 	setupClient()
 
 	// AIS Consent
-	consent := new(xs2a.ConsentResponse)
+	consent = new(xs2a.ConsentResponse)
 	err := startConsent(consent)
 	if err != nil {
 		log.Fatal(err)
@@ -71,6 +73,21 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
+func readAccountList() {
+	headers := make(map[string]string)
+	headers["X-Request-ID"] = requestID
+	headers["Consent-ID"] = consent.ID
+	headers["Authorization"] = tokens.TokenType + "" + tokens.AccessToken
+
+	res, err := EncryptedGet(BuildURL("/accounts"), nil)
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		//handle read response error
+	}
+	fmt.Printf("%s\n", string(body))
+}
+
 func getToken(code string) error {
 	tokens = new(xs2a.Tokens)
 
@@ -99,8 +116,8 @@ func authCodeHandler(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			log.Fatalf("Failed to get token %s", err.Error())
 		}
-		log.Printf(tokens.AccessToken)
 		fmt.Fprintf(w, "Authorization success. Token: %s\n", code)
+		readAccountList()
 	} else {
 		fmt.Fprintf(w, "Authorization faile\n")
 	}
@@ -126,9 +143,10 @@ func startConsent(consent *xs2a.ConsentResponse) error {
 	reader := bytes.NewReader(data)
 
 	contentType := "application/json"
+	requestID = uuid.New().String()
 	headers := make(map[string]string)
 	headers["Content-Type"] = contentType
-	headers["X-Request-ID"] = uuid.New().String()
+	headers["X-Request-ID"] = requestID
 	headers["TPP-Redirect-URI"] = os.Getenv("PT_TPPREDIRECTURI")
 	headers["TPP-Redirect-Preferred"] = "true"
 	url := BuildURL("/consents")
@@ -145,7 +163,7 @@ func startConsent(consent *xs2a.ConsentResponse) error {
 }
 
 func getEndpoints(target interface{}) error {
-	res, err := EncryptedGet(os.Getenv("PT_WELLKNOWN"))
+	res, err := EncryptedGet(os.Getenv("PT_WELLKNOWN"), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -184,9 +202,18 @@ func setupClient() {
 }
 
 // EncryptedGet uses the certificates for connecting to the API
-func EncryptedGet(url string) (*http.Response, error) {
-	// Do GET something
-	return client.Get(url)
+func EncryptedGet(url string, header map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range header {
+		req.Header.Set(key, value)
+	}
+
+	return client.Do(req)
 }
 
 // EncryptedPost uses the certificates for connecting to the API
@@ -201,7 +228,6 @@ func EncryptedPost(url string, contenttype string, body io.Reader, header map[st
 		req.Header.Set(key, value)
 	}
 
-	// Do GET something
 	return client.Do(req)
 }
 
