@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(string(consent.Status))
+	log.Println(string(consent.ID))
 
 	// Get endpoints
 	endpoints := new(xs2a.Endpoints)
@@ -81,15 +81,8 @@ func startConsent(consent *xs2a.ConsentResponse) error {
 		log.Fatal(err)
 	}
 	defer res.Body.Close()
-	//----- debug
-	data, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(string(data))
-	//-------
 
-	//return json.NewDecoder(res.Body).Decode(consent)
+	return json.NewDecoder(res.Body).Decode(consent)
 	return nil
 }
 
