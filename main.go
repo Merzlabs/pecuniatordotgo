@@ -75,11 +75,11 @@ func main() {
 
 func readAccountList() {
 	headers := make(map[string]string)
-	headers["X-Request-ID"] = requestID
+	headers["X-Request-ID"] = uuid.New().String()
 	headers["Consent-ID"] = consent.ID
-	headers["Authorization"] = tokens.TokenType + "" + tokens.AccessToken
+	headers["Authorization"] = tokens.TokenType + " " + tokens.AccessToken
 
-	res, err := EncryptedGet(BuildURL("/accounts"), nil)
+	res, err := EncryptedGet(BuildURL("/accounts"), headers)
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
