@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/Merzlabs/pecuniatordotgo/xs2a"
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ var (
 	caFile    = flag.String("CA", "someCertCAFile", "A PEM encoded CA's certificate file.")
 	client    *http.Client
 	processId string
-	token     string
+	endpoints *xs2a.Endpoints
 )
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 	log.Println(string(consent.ID))
 
 	// Get endpoints
-	endpoints := new(xs2a.Endpoints)
+	endpoints = new(xs2a.Endpoints)
 	err = getEndpoints(endpoints)
 	if err != nil {
 		log.Fatal(err)
@@ -66,16 +67,36 @@ func main() {
 	u.RawQuery = params.Encode()
 	log.Printf("Please login here to proceed: %s", u.String())
 
-	// Capture redirect
+	// Capture redirect and proceed after that
 	http.HandleFunc("/redirect", authCodeHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
+func getToken(code string) {
+	// Exchange code for token
+	form := url.Values{}
+	form.Add("code", code)
+	form.Add("client_id", "pecuniatordotgo")
+	form.Add("code_verifier", "TODO") // TODO see PKCE (Proof  Key  for Code Exchange RFC 7636)
+	form.Add("grant_type", "authorization_code")
+
+	headers := make(map[string]string)
+	res, err := EncryptedPost(endpoints.Token, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()), headers)
+
+	body, err := ioutil.ReadAll(res.Body)
+
+	if err != nil {
+		//handle read response error
+	}
+
+	fmt.Printf("%s\n", string(body))
+}
+
 func authCodeHandler(w http.ResponseWriter, req *http.Request) {
-	log.Print(req.URL.Query())
 	if req.URL.Query().Get("state") == processId {
-		token = req.URL.Query().Get("code")
-		fmt.Fprintf(w, "Authorization success. Token: %s\n", token)
+		code := req.URL.Query().Get("code")
+		getToken(code)
+		fmt.Fprintf(w, "Authorization success. Token: %s\n", code)
 	} else {
 		fmt.Fprintf(w, "Authorization faile\n")
 	}
