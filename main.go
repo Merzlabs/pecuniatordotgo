@@ -27,6 +27,7 @@ var (
 	client    *http.Client
 	processID string
 	endpoints *xs2a.Endpoints
+	tokens    *xs2a.Tokens
 )
 
 func main() {
@@ -70,7 +71,9 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func getToken(code string) {
+func getToken(code string) error {
+	tokens = new(xs2a.Tokens)
+
 	// Exchange code for token
 	form := url.Values{}
 	form.Add("code", code)
@@ -82,19 +85,21 @@ func getToken(code string) {
 	headers := make(map[string]string)
 	headers["Content-Type"] = contentType
 	res, err := EncryptedPost(endpoints.Token, contentType, strings.NewReader(form.Encode()), headers)
-
-	body, err := ioutil.ReadAll(res.Body)
-
 	if err != nil {
-		//handle read response error
+		return err
 	}
-	fmt.Printf("%s\n", string(body))
+
+	return json.NewDecoder(res.Body).Decode(tokens)
 }
 
 func authCodeHandler(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Query().Get("state") == processID {
 		code := req.URL.Query().Get("code")
-		getToken(code)
+		err := getToken(code)
+		if err != nil {
+			log.Fatalf("Failed to get token %s", err.Error())
+		}
+		log.Printf(tokens.AccessToken)
 		fmt.Fprintf(w, "Authorization success. Token: %s\n", code)
 	} else {
 		fmt.Fprintf(w, "Authorization faile\n")
