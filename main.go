@@ -37,6 +37,46 @@ func main() {
 	flag.Parse()
 	setupClient()
 
+	log.Print("Start server on localhost:8080")
+	http.HandleFunc("/index", indexHandler)
+	http.HandleFunc("/redirect", authCodeHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func readAccountList() (string, error) {
+	headers := make(map[string]string)
+	headers["X-Request-ID"] = uuid.New().String()
+	headers["Consent-ID"] = consent.ID
+	headers["Authorization"] = tokens.TokenType + " " + tokens.AccessToken
+
+	res, err := EncryptedGet(BuildURL("/accounts"), headers)
+
+	body, err := ioutil.ReadAll(res.Body)
+	return string(body), err
+}
+
+func getToken(code string) error {
+	tokens = new(xs2a.Tokens)
+
+	// Exchange code for token
+	form := url.Values{}
+	form.Add("code", code)
+	form.Add("client_id", "pecuniatordotgo")
+	form.Add("code_verifier", "TODO") // TODO see PKCE (Proof  Key  for Code Exchange RFC 7636)
+	form.Add("grant_type", "authorization_code")
+
+	contentType := "application/x-www-form-urlencoded"
+	headers := make(map[string]string)
+	headers["Content-Type"] = contentType
+	res, err := EncryptedPost(endpoints.Token, contentType, strings.NewReader(form.Encode()), headers)
+	if err != nil {
+		return err
+	}
+
+	return json.NewDecoder(res.Body).Decode(tokens)
+}
+
+func indexHandler(w http.ResponseWriter, req *http.Request) {
 	// AIS Consent
 	consent = new(xs2a.ConsentResponse)
 	err := startConsent(consent)
@@ -66,47 +106,8 @@ func main() {
 	params.Add("code_challenge", "vXVXiMA4CQ_Buik94dCNpfIfveWdNxMEwVtxGDz7xWg")
 
 	u.RawQuery = params.Encode()
-	log.Printf("Please login here to proceed: %s", u.String())
 
-	// Capture redirect and proceed after that
-	http.HandleFunc("/redirect", authCodeHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func readAccountList() {
-	headers := make(map[string]string)
-	headers["X-Request-ID"] = uuid.New().String()
-	headers["Consent-ID"] = consent.ID
-	headers["Authorization"] = tokens.TokenType + " " + tokens.AccessToken
-
-	res, err := EncryptedGet(BuildURL("/accounts"), headers)
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		//handle read response error
-	}
-	fmt.Printf("%s\n", string(body))
-}
-
-func getToken(code string) error {
-	tokens = new(xs2a.Tokens)
-
-	// Exchange code for token
-	form := url.Values{}
-	form.Add("code", code)
-	form.Add("client_id", "pecuniatordotgo")
-	form.Add("code_verifier", "TODO") // TODO see PKCE (Proof  Key  for Code Exchange RFC 7636)
-	form.Add("grant_type", "authorization_code")
-
-	contentType := "application/x-www-form-urlencoded"
-	headers := make(map[string]string)
-	headers["Content-Type"] = contentType
-	res, err := EncryptedPost(endpoints.Token, contentType, strings.NewReader(form.Encode()), headers)
-	if err != nil {
-		return err
-	}
-
-	return json.NewDecoder(res.Body).Decode(tokens)
+	fmt.Fprintf(w, "<a href=\"%s\">Please login at your bank to proceed</a>", u.String())
 }
 
 func authCodeHandler(w http.ResponseWriter, req *http.Request) {
@@ -116,10 +117,15 @@ func authCodeHandler(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			log.Fatalf("Failed to get token %s", err.Error())
 		}
-		fmt.Fprintf(w, "Authorization success. Token: %s\n", code)
-		readAccountList()
+		data, err := readAccountList()
+		if err != nil {
+			fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Data error: <br> %s\n", err.Error())
+			return
+		}
+
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization success. Data: %s\n", data)
 	} else {
-		fmt.Fprintf(w, "Authorization faile\n")
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization failed\n")
 	}
 }
 
@@ -159,7 +165,6 @@ func startConsent(consent *xs2a.ConsentResponse) error {
 	defer res.Body.Close()
 
 	return json.NewDecoder(res.Body).Decode(consent)
-	return nil
 }
 
 func getEndpoints(target interface{}) error {
