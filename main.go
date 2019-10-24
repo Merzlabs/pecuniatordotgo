@@ -39,7 +39,8 @@ func main() {
 
 	log.Print("Start server on localhost:8080")
 	http.HandleFunc("/index", indexHandler)
-	http.HandleFunc("/redirect", authCodeHandler)
+	http.HandleFunc("/redirect", authHandler)
+	http.HandleFunc("/accounts", accountHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -110,23 +111,28 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "<a href=\"%s\">Please login at your bank to proceed</a>", u.String())
 }
 
-func authCodeHandler(w http.ResponseWriter, req *http.Request) {
+func authHandler(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Query().Get("state") == processID {
 		code := req.URL.Query().Get("code")
 		err := getToken(code)
 		if err != nil {
 			log.Fatalf("Failed to get token %s", err.Error())
 		}
-		data, err := readAccountList()
-		if err != nil {
-			fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Data error: <br> %s\n", err.Error())
-			return
-		}
 
-		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization success. Data: %s\n", data)
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization success. <a href=\"/accounts\">Get accounts</a>\n")
 	} else {
 		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization failed\n")
 	}
+}
+
+func accountHandler(w http.ResponseWriter, req *http.Request) {
+	data, err := readAccountList()
+	if err != nil {
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Data error: <br> %s\n", err.Error())
+		return
+	}
+	w.Header().Add("Content-Type", "application/json")
+	fmt.Fprintf(w, data)
 }
 
 func startConsent(consent *xs2a.ConsentResponse) error {
