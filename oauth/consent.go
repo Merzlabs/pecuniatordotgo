@@ -1,4 +1,4 @@
-package xs2a
+package oauth
 
 // Account are used for ConsentRequests
 type Account struct {

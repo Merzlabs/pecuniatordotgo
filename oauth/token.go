@@ -1,4 +1,4 @@
-package xs2a
+package oauth
 
 // Tokens is the reponse from the Oauth token endpoint
 type Tokens struct {

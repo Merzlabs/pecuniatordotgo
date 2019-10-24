@@ -1,4 +1,4 @@
-package xs2a
+package oauth
 
 // Endpoints are URL for the API given by the wellknown endpoint
 type Endpoints struct {

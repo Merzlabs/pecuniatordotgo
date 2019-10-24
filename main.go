@@ -15,7 +15,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Merzlabs/pecuniatordotgo/xs2a"
+	"github.com/Merzlabs/pecuniatordotgo/oauth"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
@@ -26,9 +26,9 @@ var (
 	caFile    = flag.String("CA", "someCertCAFile", "A PEM encoded CA's certificate file.")
 	client    *http.Client
 	processID string
-	endpoints *xs2a.Endpoints
-	tokens    *xs2a.Tokens
-	consent   *xs2a.ConsentResponse
+	endpoints *oauth.Endpoints
+	tokens    *oauth.Tokens
+	consent   *oauth.ConsentResponse
 	requestID string
 )
 
@@ -37,7 +37,7 @@ func main() {
 	flag.Parse()
 	setupClient()
 	// Get endpoints
-	endpoints = new(xs2a.Endpoints)
+	endpoints = new(oauth.Endpoints)
 	err := getEndpoints(endpoints)
 	if err != nil {
 		log.Fatal(err)
@@ -63,7 +63,7 @@ func readAccountList() (string, error) {
 }
 
 func getToken(code string) error {
-	tokens = new(xs2a.Tokens)
+	tokens = new(oauth.Tokens)
 
 	// Exchange code for token
 	form := url.Values{}
@@ -85,7 +85,7 @@ func getToken(code string) error {
 
 func indexHandler(w http.ResponseWriter, req *http.Request) {
 	// AIS Consent
-	consent = new(xs2a.ConsentResponse)
+	consent = new(oauth.ConsentResponse)
 	err := startConsent(consent)
 	if err != nil {
 		log.Fatal(err)
@@ -134,13 +134,13 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, data)
 }
 
-func startConsent(consent *xs2a.ConsentResponse) error {
-	accs := []xs2a.Account{xs2a.Account{IBAN: os.Getenv("PT_IBAN")}}
-	access := &xs2a.ConsentAccess{
+func startConsent(consent *oauth.ConsentResponse) error {
+	accs := []oauth.Account{oauth.Account{IBAN: os.Getenv("PT_IBAN")}}
+	access := &oauth.ConsentAccess{
 		Balances:     accs,
 		Transactions: accs,
 	}
-	creq := &xs2a.ConsentRequest{
+	creq := &oauth.ConsentRequest{
 		Access:                   *access,
 		RecurringIndicator:       true,
 		ValidUntil:               "2019-10-30", //TODO generate usefull value
