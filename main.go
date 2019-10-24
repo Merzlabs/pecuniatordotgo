@@ -84,14 +84,21 @@ func getToken(code string) error {
 }
 
 func indexHandler(w http.ResponseWriter, req *http.Request) {
-	// AIS Consent
+	createConsent()
+	fmt.Fprintf(w, "<a href=\"%s\">Please login at your bank to proceed</a>", getOAuthLink())
+}
+
+// AIS Consent
+func createConsent() {
 	consent = new(oauth.ConsentResponse)
 	err := startConsent(consent)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
 
-	// Print redirect link
+// Build link to online banking with redirect
+func getOAuthLink() string {
 	processID = uuid.New().String()
 	u, err := url.Parse(endpoints.Authorization)
 	if err != nil {
@@ -106,8 +113,7 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 	params.Add("code_challenge", "vXVXiMA4CQ_Buik94dCNpfIfveWdNxMEwVtxGDz7xWg")
 
 	u.RawQuery = params.Encode()
-
-	fmt.Fprintf(w, "<a href=\"%s\">Please login at your bank to proceed</a>", u.String())
+	return u.String()
 }
 
 func authHandler(w http.ResponseWriter, req *http.Request) {
