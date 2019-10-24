@@ -36,6 +36,12 @@ func main() {
 	_ = godotenv.Load("secrets/sandbox.env")
 	flag.Parse()
 	setupClient()
+	// Get endpoints
+	endpoints = new(xs2a.Endpoints)
+	err := getEndpoints(endpoints)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Print("Start server on localhost:8080")
 	http.HandleFunc("/index", indexHandler)
@@ -81,13 +87,6 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 	// AIS Consent
 	consent = new(xs2a.ConsentResponse)
 	err := startConsent(consent)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Get endpoints
-	endpoints = new(xs2a.Endpoints)
-	err = getEndpoints(endpoints)
 	if err != nil {
 		log.Fatal(err)
 	}
