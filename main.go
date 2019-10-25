@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -23,7 +22,6 @@ import (
 var (
 	certFile  = flag.String("cert", "someCertFile", "A PEM eoncoded certificate file.")
 	keyFile   = flag.String("key", "someKeyFile", "A PEM encoded private key file.")
-	caFile    = flag.String("CA", "someCertCAFile", "A PEM encoded CA's certificate file.")
 	client    *http.Client
 	processID string
 	endpoints *oauth.Endpoints
@@ -196,21 +194,9 @@ func setupClient() {
 		log.Fatal(err)
 	}
 
-	// Load CA cert
-	caCert, err := ioutil.ReadFile(*caFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	caCertPool, _ := x509.SystemCertPool()
-	if caCertPool == nil {
-		caCertPool = x509.NewCertPool()
-	}
-	caCertPool.AppendCertsFromPEM(caCert)
-
 	// Setup HTTPS client
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
 	}
 	tlsConfig.BuildNameToCertificate()
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
