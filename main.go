@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -49,6 +50,10 @@ func main() {
 }
 
 func readAccountList() (string, error) {
+	if consent == nil || tokens == nil {
+		return "UNAUTHORIZED", errors.New("Please login first")
+	}
+
 	headers := make(map[string]string)
 	headers["X-Request-ID"] = uuid.New().String()
 	headers["Consent-ID"] = consent.ID
