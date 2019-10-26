@@ -15,11 +15,9 @@ import (
 )
 
 var (
-	certFile  = flag.String("cert", "someCertFile", "A PEM eoncoded certificate file.")
-	keyFile   = flag.String("key", "someKeyFile", "A PEM encoded private key file.")
-	processID string
-	tokens    *oauth.Tokens
-	consent   *oauth.ConsentResponse
+	certFile = flag.String("cert", "someCertFile", "A PEM eoncoded certificate file.")
+	keyFile  = flag.String("key", "someKeyFile", "A PEM encoded private key file.")
+	states   map[string]*oauth.State
 )
 
 func main() {
@@ -31,6 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	states = make(map[string]*oauth.State)
 
 	log.Print("Start server on localhost:8080")
 	http.HandleFunc("/index", indexHandler)
@@ -42,28 +41,35 @@ func main() {
 // Handler
 
 func indexHandler(w http.ResponseWriter, req *http.Request) {
-	createConsent()
-	processID = uuid.New().String()
-	fmt.Fprintf(w, "<a href=\"%s\">Please login at your bank to proceed</a>", oauth.GetOAuthLink(consent.ID, processID))
+	stateID := createConsent()
+	state := states[stateID]
+	fmt.Fprintf(w, "<a href=\"%s\">Please login at your bank to proceed</a>", oauth.GetOAuthLink(state.Consent.ID, stateID, state.CodeVerifier))
 }
 
 func authHandler(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Query().Get("state") == processID {
+	stateID := req.URL.Query().Get("state")
+	state := states[stateID]
+	if state != nil {
 		code := req.URL.Query().Get("code")
 		var err error
-		tokens, err = oauth.GetToken(code)
+		state.Tokens, err = oauth.GetToken(code, state.CodeVerifier)
 		if err != nil {
 			log.Fatalf("Failed to get token %s", err.Error())
 		}
 
-		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization success. <a href=\"/accounts\">Get accounts</a>\n")
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization success. <a href=\"/accounts?state=%s\">Get accounts</a>\n", stateID)
 	} else {
 		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization failed\n")
 	}
 }
 
 func accountHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := readAccountList()
+	state := states[req.URL.Query().Get("state")]
+	if state == nil {
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Invalid State\n")
+		return
+	}
+	data, err := readAccountList(state.Consent.ID, state.Tokens)
 	if err != nil {
 		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Data error: <br> %s\n", err.Error())
 		return
@@ -75,22 +81,34 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 // Helper
 
 // AIS Consent
-func createConsent() {
-	consent = new(oauth.ConsentResponse)
-	err := oauth.StartConsent(consent)
+func createConsent() string {
+	state := uuid.New().String()
+	consent := new(oauth.ConsentResponse)
+
+	codeVerifier, err := oauth.GenerateCodeVerifier()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	err = oauth.StartConsent(consent)
+	if err != nil {
+		log.Fatal(err)
+	}
+	states[state] = &oauth.State{
+		Consent:      consent,
+		CodeVerifier: codeVerifier,
+	}
+	return state
 }
 
-func readAccountList() (string, error) {
-	if consent == nil || tokens == nil {
+func readAccountList(consentID string, tokens *oauth.Tokens) (string, error) {
+	if states == nil || tokens == nil {
 		return "UNAUTHORIZED", errors.New("Please login first")
 	}
 
 	headers := make(map[string]string)
 	headers["X-Request-ID"] = uuid.New().String()
-	headers["Consent-ID"] = consent.ID
+	headers["Consent-ID"] = consentID
 	headers["Authorization"] = tokens.TokenType + " " + tokens.AccessToken
 
 	res, err := apiclient.EncryptedGet(apiclient.BuildURL("/accounts"), headers)

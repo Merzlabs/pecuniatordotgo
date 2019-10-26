@@ -2,6 +2,9 @@ package oauth
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/url"
@@ -33,13 +36,13 @@ func getEndpoints(target interface{}) error {
 }
 
 // GetToken exchanges an auth code for tokens
-func GetToken(code string) (*Tokens, error) {
+func GetToken(code string, codeVerifier string) (*Tokens, error) {
 	tokens := new(Tokens)
 
 	form := url.Values{}
 	form.Add("code", code)
 	form.Add("client_id", "pecuniatordotgo")
-	form.Add("code_verifier", "TODO") // TODO see PKCE (Proof  Key  for Code Exchange RFC 7636)
+	form.Add("code_verifier", codeVerifier)
 	form.Add("grant_type", "authorization_code")
 
 	contentType := "application/x-www-form-urlencoded"
@@ -54,18 +57,19 @@ func GetToken(code string) (*Tokens, error) {
 }
 
 // GetOAuthLink builds link to online banking with redirect
-func GetOAuthLink(consentID string, state string) (link string) {
+func GetOAuthLink(consentID string, stateID string, codeVerifier string) (link string) {
 	u, err := url.Parse(endpoints.Authorization)
 	if err != nil {
 		log.Fatal(err)
 	}
+	hash := Hash([]byte(codeVerifier))
 	params := url.Values{}
 	params.Add("responseType", "code")
 	params.Add("clientId", "pecuniatordotgo")
 	params.Add("scope", "AIS: "+consentID)
-	params.Add("state", state)
+	params.Add("state", stateID)
 	params.Add("code_challenge_method", "S256")
-	params.Add("code_challenge", "vXVXiMA4CQ_Buik94dCNpfIfveWdNxMEwVtxGDz7xWg")
+	params.Add("code_challenge", hash)
 
 	u.RawQuery = params.Encode()
 	return u.String()
@@ -108,4 +112,33 @@ func StartConsent(consent *ConsentResponse) error {
 	defer res.Body.Close()
 
 	return json.NewDecoder(res.Body).Decode(consent)
+}
+
+//PKCE code. Derived from https://github.com/nirasan/go-oauth-pkce-code-verifier
+
+// GenerateCodeVerifier builds a secret to be used for PKCE
+func GenerateCodeVerifier() (string, error) {
+	b := make([]byte, 64)
+	_, err := rand.Read(b)
+	// Note that err == nil only if we read len(b) bytes.
+	if err != nil {
+		return "", err
+	}
+
+	return Hash(b), nil
+}
+
+// Hash creates a SH246
+func Hash(b []byte) string {
+	hash := sha256.New()
+	hash.Write(b)
+	return encode(hash.Sum(nil))
+}
+
+func encode(msg []byte) string {
+	encoded := base64.StdEncoding.EncodeToString(msg)
+	encoded = strings.Replace(encoded, "+", "-", -1)
+	encoded = strings.Replace(encoded, "/", "_", -1)
+	encoded = strings.Replace(encoded, "=", "", -1)
+	return encoded
 }
