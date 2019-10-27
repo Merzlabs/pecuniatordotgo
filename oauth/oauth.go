@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Merzlabs/pecuniatordotgo/apiclient"
 	"github.com/google/uuid"
@@ -85,7 +86,7 @@ func StartConsent(consent *ConsentResponse) error {
 	creq := &ConsentRequest{
 		Access:                   *access,
 		RecurringIndicator:       true,
-		ValidUntil:               "2019-10-30", //TODO generate usefull value
+		ValidUntil:               time.Now().AddDate(0, 1, 0).Format("2006-01-02"),
 		FrequencyPerDay:          4,
 		CombinedServiceIndicator: false,
 	}
