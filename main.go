@@ -54,7 +54,7 @@ func authHandler(w http.ResponseWriter, req *http.Request) {
 		var err error
 		state.Tokens, err = oauth.GetToken(code, state.CodeVerifier)
 		if err != nil {
-			log.Fatalf("Failed to get token %s", err.Error())
+			fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Error while getting authorization token. Please try again later.\n")
 		}
 
 		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Authorization success. <a href=\"/accounts?state=%s\">Get accounts</a>\n", stateID)
