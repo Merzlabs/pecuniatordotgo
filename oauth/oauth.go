@@ -62,7 +62,7 @@ func GetOAuthLink(consentID string, stateID string, codeVerifier string) (link s
 	if err != nil {
 		log.Fatal(err)
 	}
-	hash := Hash([]byte(codeVerifier))
+	hash := encode(Hash([]byte(codeVerifier)))
 	params := url.Values{}
 	params.Add("responseType", "code")
 	params.Add("clientId", "pecuniatordotgo")
@@ -120,21 +120,21 @@ func StartConsent(consent *ConsentResponse) error {
 func GenerateCodeVerifier() (string, error) {
 	b := make([]byte, 64)
 	_, err := rand.Read(b)
-	// Note that err == nil only if we read len(b) bytes.
 	if err != nil {
 		return "", err
 	}
 
-	return Hash(b), nil
+	return encode(Hash(b)), nil
 }
 
 // Hash creates a SH246
-func Hash(b []byte) string {
+func Hash(b []byte) []byte {
 	hash := sha256.New()
 	hash.Write(b)
-	return encode(hash.Sum(nil))
+	return hash.Sum(nil)
 }
 
+// encode converts to base64
 func encode(msg []byte) string {
 	encoded := base64.StdEncoding.EncodeToString(msg)
 	encoded = strings.Replace(encoded, "+", "-", -1)
