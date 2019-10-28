@@ -33,7 +33,7 @@ func main() {
 
 	log.Print("Start server on localhost:8080")
 	http.HandleFunc("/index", indexHandler)
-	http.HandleFunc("/redirect", authHandler)
+	http.HandleFunc("/oauth/redirect", authHandler)
 	http.HandleFunc("/accounts", accountHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
