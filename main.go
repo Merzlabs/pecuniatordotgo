@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/Merzlabs/pecuniatordotgo/apiclient"
 	"github.com/Merzlabs/pecuniatordotgo/oauth"
@@ -35,6 +36,8 @@ func main() {
 	http.HandleFunc("/index", indexHandler)
 	http.HandleFunc("/oauth/redirect", authHandler)
 	http.HandleFunc("/accounts", accountHandler)
+	http.HandleFunc("/accounts/balances", accountBalancesHandler)
+	http.HandleFunc("/accounts/transactions", accountTransactionsHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -74,7 +77,34 @@ func accountHandler(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Data error: <br> %s\n", err.Error())
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
+	//w.Header().Add("Content-Type", "application/json")
+	fmt.Fprintf(w, "<a href=\"/index\">Start</a><br>"+data)
+}
+
+func accountBalancesHandler(w http.ResponseWriter, req *http.Request) {
+	handleAccountDetails(w, req, "balances", nil)
+}
+
+func accountTransactionsHandler(w http.ResponseWriter, req *http.Request) {
+	params := url.Values{}
+	params.Add("dateFrom", "2019-0-01")
+	params.Add("bookingStatus", "both")
+	handleAccountDetails(w, req, "transactions", params)
+}
+
+func handleAccountDetails(w http.ResponseWriter, req *http.Request, path string, params url.Values) {
+	state := states[req.URL.Query().Get("state")]
+	resourceID := req.URL.Query().Get("resourceId")
+	if state == nil {
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Invalid State\n")
+		return
+	}
+	data, err := readAccountDetails(resourceID, path, state.Consent.ID, state.Tokens, params)
+	if err != nil {
+		fmt.Fprintf(w, "<a href=\"/index\">Start</a><br> Data error: <br> %s\n", err.Error())
+		return
+	}
+	//w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, data)
 }
 
@@ -111,7 +141,24 @@ func readAccountList(consentID string, tokens *oauth.Tokens) (string, error) {
 	headers["Consent-ID"] = consentID
 	headers["Authorization"] = tokens.TokenType + " " + tokens.AccessToken
 
-	res, err := apiclient.EncryptedGet(apiclient.BuildURL("/accounts"), headers)
+	res, err := apiclient.EncryptedGet(apiclient.BuildURL("/accounts"), headers, nil)
+
+	body, err := ioutil.ReadAll(res.Body)
+	return string(body), err
+}
+
+func readAccountDetails(resourceID string, path string, consentID string, tokens *oauth.Tokens, params url.Values) (string, error) {
+	if states == nil || tokens == nil {
+		return "UNAUTHORIZED", errors.New("Please login first")
+	}
+
+	headers := make(map[string]string)
+	headers["X-Request-ID"] = uuid.New().String()
+	headers["Consent-ID"] = consentID
+	headers["Authorization"] = tokens.TokenType + " " + tokens.AccessToken
+
+	path = fmt.Sprintf("/accounts/%s/%s", resourceID, path)
+	res, err := apiclient.EncryptedGet(apiclient.BuildURL(path), headers, params)
 
 	body, err := ioutil.ReadAll(res.Body)
 	return string(body), err

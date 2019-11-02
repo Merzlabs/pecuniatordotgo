@@ -31,7 +31,7 @@ func Setup(certFile *string, keyFile *string) {
 }
 
 // EncryptedGet uses the certificates for connecting to the API
-func EncryptedGet(url string, header map[string]string) (*http.Response, error) {
+func EncryptedGet(url string, header map[string]string, params url.Values) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 
 	if err != nil {
@@ -40,6 +40,10 @@ func EncryptedGet(url string, header map[string]string) (*http.Response, error) 
 
 	for key, value := range header {
 		req.Header.Set(key, value)
+	}
+
+	if params != nil {
+		req.URL.RawQuery = params.Encode()
 	}
 
 	return client.Do(req)

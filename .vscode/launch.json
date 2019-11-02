@@ -11,6 +11,13 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {},
+            "dlvLoadConfig": {
+                "followPointers": true,
+                "maxVariableRecurse": 1,
+                "maxStringLen": 500,
+                "maxArrayValues": 64,
+                "maxStructFields": -1
+            },
             "args": ["-cert", "secrets/cert/own/zertifikat_withintermediate.pem", "-key", "secrets/cert/own/priv.key"]
         }
     ]

@@ -27,7 +27,7 @@ func Init() error {
 }
 
 func getEndpoints(target interface{}) error {
-	res, err := apiclient.EncryptedGet(os.Getenv("PT_WELLKNOWN"), nil)
+	res, err := apiclient.EncryptedGet(os.Getenv("PT_WELLKNOWN"), nil, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
