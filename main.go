@@ -52,6 +52,7 @@ func indexHandler(w http.ResponseWriter, req *http.Request) {
 	stateID := createConsent()
 	state := states[stateID]
 	w.Header().Add("Content-Type", "application/json")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	fmt.Fprintf(w, "{\"authUrl\": \"%s\"}", oauth.GetOAuthLink(state.Consent.ID, stateID, state.CodeVerifier))
 }
 
@@ -60,6 +61,7 @@ func redirectHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func authHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Content-Type", "application/json")
 	stateID := req.URL.Query().Get("state")
 	state := states[stateID]
@@ -78,6 +80,7 @@ func authHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func accountHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Content-Type", "application/json")
 	state := states[req.URL.Query().Get("state")]
 	if state == nil {
@@ -104,6 +107,7 @@ func accountTransactionsHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func handleAccountDetails(w http.ResponseWriter, req *http.Request, path string, params url.Values) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Content-Type", "text/xml")
 	state := states[req.URL.Query().Get("state")]
 	resourceID := req.URL.Query().Get("resourceId")
