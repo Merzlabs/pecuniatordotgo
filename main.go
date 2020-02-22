@@ -22,11 +22,14 @@ var (
 )
 
 func main() {
-	_ = godotenv.Load("secrets/sandbox.env")
+	err := godotenv.Load("secrets/sandbox.env")
+	if err != nil {
+		log.Fatalf("Cannot load config %s", err.Error())
+	}
 	flag.Parse()
 	apiclient.Setup(certFile, keyFile)
 	// Get endpoints
-	err := oauth.Init()
+	err = oauth.Init()
 	if err != nil {
 		log.Fatal(err)
 	}
