@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/Merzlabs/pecuniatordotgo/apiclient"
 	"github.com/Merzlabs/pecuniatordotgo/oauth"
@@ -61,8 +62,6 @@ func redirectHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func authHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
 	stateID := req.URL.Query().Get("state")
 	state := states[stateID]
 	if state != nil {
@@ -73,7 +72,8 @@ func authHandler(w http.ResponseWriter, req *http.Request) {
 			fmt.Fprintf(w, "{\"error\": \"Error while getting authorization token. Please try again later\"}")
 		}
 
-		fmt.Fprintf(w, "{\"message\": \"Authorization success\", \"accountsUrl\":\"/accounts?state=%s\", \"transactionUrl\":\"/accounts/transactions?state=%s\"}", stateID, stateID)
+		u := os.Getenv("PT_APPLICATIONREDIRECT") + "?state=" + stateID
+		http.Redirect(w, req, u, 301)
 	} else {
 		fmt.Fprintf(w, "{\"error\": \"Authorization failed\"}")
 	}
